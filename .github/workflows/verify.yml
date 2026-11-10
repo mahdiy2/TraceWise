@@ -25,7 +25,7 @@ jobs:
           sudo apt-get install -y xvfb fakeroot
           chmod +x gradlew
       - name: Test and build all Linux targets
-        run: xvfb-run -a ./gradlew :shared:jvmTest :retrace:test :server:test :composeApp:test :composeApp:packageDeb :webApp:wasmJsBrowserDistribution :server:installDist --no-daemon
+        run: xvfb-run -a ./gradlew :shared:jvmTest :retrace:test :server:test :composeApp:test :composeApp:createDistributable :composeApp:packageDeb :webApp:wasmJsBrowserDistribution :server:installDist --no-daemon
       - name: Verify browser workflow
         run: |
           export CHROMIUM="$(command -v google-chrome || command -v chromium)"
@@ -81,7 +81,7 @@ jobs:
           if (-not (Test-Path (Join-Path $wixBin 'candle.exe'))) { throw 'WiX 3.x is required by JDK 21 packaging' }
           $wixBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Test and build Windows MSI
-        run: .\gradlew.bat :shared:jvmTest :retrace:test :server:test :composeApp:test :composeApp:packageMsi --no-daemon
+        run: .\gradlew.bat :shared:jvmTest :retrace:test :server:test :composeApp:test :composeApp:createDistributable :composeApp:packageMsi --no-daemon
       - name: Verify Windows image and installed MSI
         shell: pwsh
         run: |
