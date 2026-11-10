@@ -1,0 +1,138 @@
+name: Verify and package
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Prepare Linux packaging and display tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb fakeroot
+          chmod +x gradlew
+      - name: Test and build all Linux targets
+        run: xvfb-run -a ./gradlew :shared:jvmTest :retrace:test :server:test :composeApp:test :composeApp:packageDeb :webApp:wasmJsBrowserDistribution :server:installDist --no-daemon
+      - name: Verify browser workflow
+        run: |
+          export CHROMIUM="$(command -v google-chrome || command -v chromium)"
+          node scripts/browser-smoke.mjs
+      - name: Verify packaged Linux app
+        run: |
+          export STACKTRACE_SMOKE_REPORT="$PWD/build/native-smoke.txt"
+          timeout 30 xvfb-run -a composeApp/build/compose/binaries/main/app/StackTraceStudio/bin/StackTraceStudio --smoke-test
+          grep -F STACKTRACE_STUDIO_SMOKE_OK "$STACKTRACE_SMOKE_REPORT"
+          package_file=$(find composeApp/build/compose/binaries/main/deb -name '*.deb' -print -quit)
+          sudo apt-get install -y "./$package_file"
+          installed_app=$(find /opt -path '*/bin/StackTraceStudio' -print -quit)
+          test -n "$installed_app"
+          export STACKTRACE_SMOKE_REPORT="$PWD/build/installed-linux-smoke.txt"
+          timeout 30 xvfb-run -a "$installed_app" --smoke-test
+          grep -F STACKTRACE_STUDIO_SMOKE_OK "$STACKTRACE_SMOKE_REPORT"
+      - name: Verify PHP examples
+        run: |
+          php -l examples/php/retrace.php
+          php -l examples/php/laravel.php
+          python3 scripts/php-smoke.py
+      - name: Upload Linux installers and verification reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-delivery
+          if-no-files-found: error
+          path: |
+            composeApp/build/compose/binaries/main/deb/*.deb
+            build/*verification.json
+            build/*smoke.txt
+            build/browser-*.png
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-test-reports
+          path: '**/build/reports/tests/'
+
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Make WiX tools available
+        shell: pwsh
+        run: |
+          $wixBin = if ($env:WIX) { Join-Path $env:WIX 'bin' } else { 'C:\Program Files (x86)\WiX Toolset v3.14\bin' }
+          if (-not (Test-Path (Join-Path $wixBin 'candle.exe'))) { throw 'WiX 3.x is required by JDK 21 packaging' }
+          $wixBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Test and build Windows MSI
+        run: .\gradlew.bat :shared:jvmTest :retrace:test :server:test :composeApp:test :composeApp:packageMsi --no-daemon
+      - name: Verify Windows image and installed MSI
+        shell: pwsh
+        run: |
+          function Test-NativeApp($exe, $report) {
+            $env:STACKTRACE_SMOKE_REPORT = $report
+            $process = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+            if (-not $process.WaitForExit(30000)) { $process.Kill(); throw 'Native smoke test timed out' }
+            if ($process.ExitCode -ne 0) { throw "Native smoke failed with exit code $($process.ExitCode)" }
+            if (-not (Test-Path $report)) { throw 'Native smoke report is missing' }
+            if ((Get-Content $report -Raw).Trim() -ne 'STACKTRACE_STUDIO_SMOKE_OK') { throw 'Native smoke report is invalid' }
+          }
+          $image = Join-Path $PWD 'composeApp\build\compose\binaries\main\app\StackTraceStudio\StackTraceStudio.exe'
+          Test-NativeApp $image (Join-Path $env:RUNNER_TEMP 'windows-image-smoke.txt')
+          $msi = Get-ChildItem 'composeApp\build\compose\binaries\main\msi\*.msi' | Select-Object -First 1
+          if (-not $msi) { throw 'MSI artifact missing' }
+          $installer = Start-Process msiexec.exe -ArgumentList @('/i', "`"$($msi.FullName)`"", '/qn', '/norestart') -Wait -PassThru
+          if ($installer.ExitCode -notin @(0,3010)) { throw "MSI installation failed: $($installer.ExitCode)" }
+          $installed = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'StackTraceStudio') -Filter 'StackTraceStudio.exe' -Recurse | Select-Object -First 1
+          if (-not $installed) { throw 'Installed app launcher missing' }
+          Test-NativeApp $installed.FullName (Join-Path $env:RUNNER_TEMP 'windows-installed-smoke.txt')
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-delivery
+          if-no-files-found: error
+          path: |
+            composeApp/build/compose/binaries/main/msi/*.msi
+            ${{ runner.temp }}/windows-*-smoke.txt
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-test-reports
+          path: '**/build/reports/tests/'
+
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and verify deployed server
+        run: |
+          docker build -t stacktrace-studio:ci .
+          docker run -d --name studio-ci -p 127.0.0.1:18082:8080 -e STACKTRACE_API_TOKEN=ci-test-token stacktrace-studio:ci
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18082/health; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18082/health
+          curl -fsS http://127.0.0.1:18082/ | grep -F 'StackTrace Studio'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18082/api/v1/projects)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer ci-test-token' http://127.0.0.1:18082/api/v1/projects)" = 200
+      - name: Stop test container
+        if: always()
+        run: docker rm -f studio-ci || true

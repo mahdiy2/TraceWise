@@ -1,0 +1,13 @@
+.gradle/
+.kotlin/
+**/build/
+.idea/
+local.properties
+/data/
+/server/data/
+.env
+
+.gradle-home/
+__pycache__/
+
+.delivery/

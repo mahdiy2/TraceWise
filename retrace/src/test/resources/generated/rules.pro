@@ -1,0 +1,3 @@
+-keep class sample.Main { public static void main(java.lang.String[]); }
+-keep,allowobfuscation class sample.Crash { public static void explode(); }
+-keepattributes SourceFile,LineNumberTable

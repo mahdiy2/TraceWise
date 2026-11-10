@@ -1,0 +1,12 @@
+# compiler: R8
+# compiler_version: 9.5.29
+# common_typos_disable
+# {"id":"com.android.tools.r8.mapping","version":"2.2"}
+# pg_map_id: d696c5969d4a204610170f1267b908644b805c223b67d88e79933cf6ac9970ee
+# pg_map_hash: SHA-256 d696c5969d4a204610170f1267b908644b805c223b67d88e79933cf6ac9970ee
+sample.Crash -> a.a:
+# {"id":"sourceFile","fileName":"Crash.java"}
+    1:1:void explode():4:4 -> a
+sample.Main -> sample.Main:
+# {"id":"sourceFile","fileName":"Main.java"}
+    1:1:void main(java.lang.String[]):4:4 -> main

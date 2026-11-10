@@ -1,0 +1,3 @@
+com.example.Crash -> a:
+# {"id":"sourceFile","fileName":"Crash.kt"}
+    1:1:void explode():42:42 -> b

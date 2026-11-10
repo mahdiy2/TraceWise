@@ -1,0 +1,14 @@
+.gradle
+.gradle-home
+.kotlin
+**/build
+**/__pycache__
+.git
+.codex
+.agents
+.aws
+.env
+/data
+/server/data
+
+.delivery
