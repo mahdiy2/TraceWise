@@ -31,7 +31,9 @@ class R8RetraceEngine(private val mappingLimit: Long = 50L*1024*1024) {
         }
         val retracer = try {
             val supplier = ProguardMappingSupplier.builder()
-                .setProguardMapProducer(ProguardMapProducer.fromPath(mapping))
+                // File-backed R8 producers retain memory-mapped files on Windows.
+                // Bounded bytes let a completed operation release its mapping immediately.
+                .setProguardMapProducer(ProguardMapProducer.fromBytes(Files.readAllBytes(mapping)))
                 .setLoadAllDefinitions(true).build()
             supplier.createRetracer(diagnostics) // Force official parsing before processing any input.
             StringRetrace.create(RetraceOptions.builder(diagnostics).setMappingSupplier(supplier).build())

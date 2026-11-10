@@ -88,6 +88,11 @@ class R8RetraceEngineTest {
         assertContains(result.translated!!,"com.example.Crash.explode(Crash.kt:42)")
         assertContains(result.translated!!,prefix)
     }
+    @Test fun completedRetraceReleasesMappingForImmediateDeletion() = withMapping { mapping ->
+        assertEquals(RetraceStatus.SUCCESS, engine.retrace(mapping, "\tat a.b(SourceFile:1)").status)
+        Files.delete(mapping)
+        assertFalse(Files.exists(mapping))
+    }
     @Test fun missingMapping() {
         assertEquals("MAPPING_MISSING", engine.retrace(java.nio.file.Path.of("absent-mapping.txt"), "trace").errorCode)
     }
