@@ -15,9 +15,10 @@ try {
   server=spawn(resolve('server/build/install/server/bin/server'),[],{env:{...process.env,JAVA_HOME:process.env.JAVA_HOME||join(homedir(),'.jdks/jbr-21.0.11'),STACKTRACE_DATA_DIR:join(directory,'data'),STACKTRACE_WEB_DIR:resolve('webApp/build/dist/wasmJs/productionExecutable'),STACKTRACE_API_TOKEN:'browser-test-token',PORT:String(port)},stdio:['ignore','pipe','pipe']});
   let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
   for(let i=0;;i++){try{if((await fetch(origin+'/health')).ok)break;}catch{}if(i===100)throw Error('Server startup failed: '+logs);await delay(100);}
-  chrome=spawn(process.env.CHROMIUM||'chromium',['--headless','--no-sandbox','--disable-dev-shm-usage','--remote-debugging-port=0',`--user-data-dir=${join(directory,'chrome')}`,'about:blank'],{stdio:'ignore'});
+  chrome=spawn(process.env.CHROMIUM||'chromium',['--headless','--no-sandbox','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${join(directory,'chrome')}`,'about:blank'],{stdio:['ignore','ignore','pipe']});
+  let chromeLogs='',chromeError;chrome.stderr.on('data',d=>chromeLogs+=d);chrome.on('error',error=>chromeError=error);
   let debugPort;
-  for(let i=0;;i++){try{debugPort=Number((await readFile(join(directory,'chrome/DevToolsActivePort'),'utf8')).split('\n')[0]);break;}catch{}if(i===100)throw Error('Chromium startup failed');await delay(100);}
+  for(let i=0;;i++){try{debugPort=Number((await readFile(join(directory,'chrome/DevToolsActivePort'),'utf8')).split('\n')[0]);break;}catch{}if(chromeError||chrome.exitCode!==null||chrome.signalCode!==null||i===300)throw Error('Chromium startup failed: '+(chromeError?.message||'exit='+chrome.exitCode+' signal='+chrome.signalCode)+'\n'+chromeLogs);await delay(100);}
   const tabs=await(await fetch(`http://127.0.0.1:${debugPort}/json`)).json();
   ws=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
   await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});
