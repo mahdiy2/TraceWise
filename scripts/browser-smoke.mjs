@@ -22,9 +22,10 @@ try {
   const tabs=await(await fetch(`http://127.0.0.1:${debugPort}/json`)).json();
   ws=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
   await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});
-  let next=0;const pending=new Map();const errors=[];const responses=[];const fileChoosers=[];
-  ws.onmessage=event=>{const message=JSON.parse(event.data);if(message.id){const p=pending.get(message.id);pending.delete(message.id);message.error?p.reject(Error(JSON.stringify(message.error))):p.resolve(message.result);}if(message.method==='Page.fileChooserOpened')fileChoosers.push(message.params);if(message.method==='Network.responseReceived')responses.push(message.params);if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails);};
+  let next=0;const pending=new Map();const errors=[];const responses=[];const fileChoosers=[];const completedRequests=new Set();
+  ws.onmessage=event=>{const message=JSON.parse(event.data);if(message.id){const p=pending.get(message.id);pending.delete(message.id);message.error?p.reject(Error(JSON.stringify(message.error))):p.resolve(message.result);}if(message.method==='Network.loadingFinished')completedRequests.add(message.params.requestId);if(message.method==='Page.fileChooserOpened')fileChoosers.push(message.params);if(message.method==='Network.responseReceived')responses.push(message.params);if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails);};
   const cdp=(method,params={})=>new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
+  const responseBodyFor=async requestId=>{for(let i=0;!completedRequests.has(requestId);i++){if(i===300)throw Error('Response download did not finish: '+requestId);await delay(100);}return JSON.parse((await cdp('Network.getResponseBody',{requestId})).body);};
   await cdp('Runtime.enable');await cdp('Page.enable');await cdp('Network.enable');
   await cdp('Emulation.setDeviceMetricsOverride',{width:1200,height:900,deviceScaleFactor:1,mobile:false});
   await cdp('Page.navigate',{url:origin});
@@ -54,7 +55,7 @@ try {
   await chooseFile(75,825,'examples/crash.txt');await delay(500);await screenshotTo('browser-trace-loaded');
   await click(190,785);await delay(800);await screenshotTo('browser-retraced');
   const retraceResponse=await waitResponse('/api/v1/retrace/batch',200);
-  const responseBody=JSON.parse((await cdp('Network.getResponseBody',{requestId:retraceResponse.requestId})).body);
+  const responseBody=await responseBodyFor(retraceResponse.requestId);
   const expected='com.example.Crash.explode(Crash.kt:42)';
   if(!responseBody.results[0].translated.includes(expected))throw Error('UI retrace did not restore source/line');
   if(responseBody.results[0].original!==await readFile('examples/crash.txt','utf8'))throw Error('Original trace was changed');
@@ -76,7 +77,7 @@ try {
   let batchResponse;
   for(let i=0;;i++){const list=responses.filter(r=>r.response.url.endsWith('/api/v1/retrace/batch'));if(list.length>previousBatches){batchResponse=list.at(-1);break;}if(i===100)throw Error('Batch UI did not submit');await delay(100);}
   await delay(500);
-  const batchBody=JSON.parse((await cdp('Network.getResponseBody',{requestId:batchResponse.requestId})).body);
+  const batchBody=await responseBodyFor(batchResponse.requestId);
   if(batchBody.results.length!==2||!batchBody.results.every(r=>r.success&&r.translated.includes(expected)))throw Error('Batch UI results were incorrect');
   await screenshotTo('browser-batch');
   const batchesBeforeShortcut=responses.filter(r=>r.response.url.endsWith('/api/v1/retrace/batch')).length;
@@ -88,7 +89,7 @@ try {
   let shortcutResponse;
   for(let i=0;;i++){const list=responses.filter(r=>r.response.url.endsWith('/api/v1/retrace/batch'));if(list.length>batchesBeforeShortcut){shortcutResponse=list.at(-1);break;}if(i===100)throw Error('Ctrl+Enter did not submit');await delay(100);}
   await delay(500);
-  const shortcutBody=JSON.parse((await cdp('Network.getResponseBody',{requestId:shortcutResponse.requestId})).body);
+  const shortcutBody=await responseBodyFor(shortcutResponse.requestId);
   if(JSON.stringify(shortcutBody.results.map(r=>r.original))!==JSON.stringify(batchBody.results.map(r=>r.original)))throw Error('Shortcut modified original traces');
   if(!shortcutBody.results.every(r=>r.success))throw Error('Shortcut retrace failed');
   await click(1030,48);await delay(300);await screenshotTo('browser-light-theme');
