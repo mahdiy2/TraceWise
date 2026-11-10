@@ -22,7 +22,8 @@ jobs:
       - name: Prepare Linux packaging and display tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb fakeroot
+          sudo apt-get install -y xvfb fakeroot xdg-utils desktop-file-utils
+          sudo install -d /etc/xdg/menus /usr/share/desktop-directories /usr/share/applications
           chmod +x gradlew
       - name: Test and build all Linux targets
         run: xvfb-run -a ./gradlew :shared:jvmTest :retrace:test :server:test :composeApp:test :composeApp:createDistributable :composeApp:packageDeb :webApp:wasmJsBrowserDistribution :server:installDist --no-daemon
