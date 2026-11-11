@@ -20,20 +20,23 @@
 - Packaged Linux application image built through Compose createDistributable. Its bundled runtime passed --smoke-test and wrote build/native-smoke.txt.
 - Portable Linux archive: build/StackTraceStudio-linux-x64.tar.gz (about 102 MiB compressed; includes Java and R8).
 - PHP 8.4.27 was built only under build/tools after checking its source SHA-256 against PHP's official release metadata. Both examples lint successfully. The plain cURL example passed real-backend retrace, original preservation and rejected bad auth. Report: build/php-verification.json.
-- CI is running against the published implementation branch. Initial Windows tests exposed R8 file-backed mapping locks; the engine now uses size-limited byte-backed mappings, and immediate deletion has a regression test. Local tests pass; native CI rerun is pending.
+- Final CI [run 42825228608](https://github.com/mahdiy2/TraceWise/actions/runs/42825228608) passed Linux, Windows and Docker on implementation commit `b8065edf2ba4e91f2657b488aa3e23dae90c5bb4`.
+- Linux CI passed all tests, production browser workflow, app-image launch, actual DEB installation and installed-app smoke, PHP integration and report upload.
+- Windows CI passed all tests, app-image launch, MSI installation and installed-app smoke. Both native launch reports contain `STACKTRACE_STUDIO_SMOKE_OK`.
+- Docker CI built the image and verified startup, health, static browser serving and authenticated/unauthenticated API behavior.
 
-## Remaining requirements / delivery gates
-1. Linux DEB installation and Windows MSI/runtime verification remain pending native CI runs. The Linux portable bundled runtime has passed; this executor lacks DEB packaging tools and cannot run Windows.
-2. Docker deployment verification remains pending CI: this executor has no Docker daemon socket.
-3. GitHub repository supplied: https://github.com/mahdiy2/TraceWise.git. A separate checkout under ignored .delivery/TraceWise preserves this workspace; source is published on codex/stacktrace-studio, and CI is active.
-4. Laravel example has syntax verification only; no Laravel application is present. The complete plain PHP cURL integration is verified, including ambiguous variant handling.
+## Delivery status and limitations
+- All required implementation and target delivery gates passed. Requirement evidence is mapped in `docs/VERIFICATION.md`.
+- Source is published on `codex/stacktrace-studio` at https://github.com/mahdiy2/TraceWise. Root `.git` is a placeholder; the working Git checkout is `.delivery/TraceWise`.
+- Installers and smoke/test reports are retained as CI artifacts. Local delivery files are `build/StackTraceStudio-linux-x64.tar.gz`, `build/StackTraceStudio-linux-x64.deb` and `build/StackTraceStudio-windows-x64.msi`, with SHA-256 sidecars.
+- Laravel example has syntax verification only; no Laravel application is present. The complete plain PHP cURL integration is executed and verified, including ambiguous variant handling.
 
 ## Completed final implementation checks
 - Unreferenced mapping/APK bytes are reclaimed under SQLite write coordination. Active retraces pin immutable snapshots, and replacement/deletion/concurrent access are covered by tests.
 - Coroutine/logcat frames, generated real R8 fixture, concurrent engine calls and cancellation cleanup are tested. Fixture regeneration and provenance are included.
 - Latest browser production bundle passed real Chromium workflows, Ctrl+Enter, light/dark screenshots and 390-pixel viewport checks. Original text, clipboard and download equality were verified.
 - Portable archive was extracted and launched from a directory containing spaces without JAVA_HOME; its bundled runtime passed the isolated smoke test.
-- Requirement audit covers the requested core workflows, modular stack, API/PHP integration, offline desktop, browser HTTP client, limits/authentication, privacy, persistence and documentation. Native installer and Docker execution remain explicit delivery gates.
+- Requirement audit covers the requested core workflows, modular stack, API/PHP integration, offline desktop, browser HTTP client, limits/authentication, privacy, persistence and documentation. Native installer and Docker execution passed final CI.
 - Dependency versions are centralized in the Gradle catalog; official R8 is JVM-only. No custom mapping parser or critical placeholder implementation remains.
 
 ## Build environment notes
@@ -42,4 +45,4 @@
 - A workspace-local ignored .gradle-home retains build dependencies for this executor. In-process Kotlin compilation avoids restricted global daemon-cache writes.
 - Root .git is a placeholder; delivery commits are prepared in the separate .delivery/TraceWise checkout.
 
-The full readme.txt objective remains active until the native installer and Docker delivery gates pass.
+The readme.txt implementation and required platform verification are complete. Subsequent documentation-only commits do not change the verified runtime code.

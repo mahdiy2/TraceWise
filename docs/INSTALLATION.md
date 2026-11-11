@@ -21,9 +21,12 @@ On Debian/Ubuntu with fakeroot and dpkg tools installed:
 sudo apt install ./composeApp/build/compose/binaries/main/deb/*.deb
 ```
 
-This executor has verified the rendered Linux UI and portable bundled runtime.
-It lacks dpkg tools, so DEB installation verification is delegated to the supplied
-Linux CI job and is not yet claimed complete.
+Linux CI verified DEB installation and launched the installed bundled runtime in
+[run 42825228608](https://github.com/mahdiy2/TraceWise/actions/runs/42825228608). A system JDK is not needed to run the installed app.
+On minimal/headless hosts, desktop menu registration also needs `xdg-utils`,
+`desktop-file-utils` and the standard `/etc/xdg/menus`,
+`/usr/share/desktop-directories` and `/usr/share/applications` directories.
+The CI workflow prepares these explicitly and uses Xvfb for graphical checks.
 
 ## Windows
 
@@ -31,7 +34,7 @@ Install JDK 21 and WiX 3.x (including candle.exe and light.exe on PATH), then us
 PowerShell from the project root:
 
 ```powershell
-.\gradlew.bat :composeApp:test :composeApp:packageMsi
+.\gradlew.bat :composeApp:test :composeApp:createDistributable :composeApp:packageMsi
 ```
 
 Open the MSI from `composeApp\build\compose\binaries\main\msi`. The installer is
@@ -55,9 +58,15 @@ Windows; they cannot be established by a Linux compile.
 
 `.github/workflows/verify.yml` defines Linux tests/browser/DEB verification,
 Windows tests/MSI installation and packaged-runtime verification, and a Docker
-build/deployment check. It uploads installers and reports. The workflow has not
-been run against a connected GitHub repository in this session. Its existence is
-not proof that the Windows/DEB/Docker gates passed.
+build/deployment check. It uploads installers and reports. All three jobs passed
+in [run 42825228608](https://github.com/mahdiy2/TraceWise/actions/runs/42825228608), covering actual DEB/MSI installation, both installed
+launchers, production browser behavior, PHP integration and Docker deployment.
+The verified implementation commit is `b8065edf2ba4e91f2657b488aa3e23dae90c5bb4`.
+
+Local delivery artifacts are `build/StackTraceStudio-linux-x64.deb`,
+`build/StackTraceStudio-windows-x64.msi` and the portable Linux archive described
+above. Each has a `.sha256` sidecar. GitHub Actions retains native installers
+and smoke reports under the `linux-delivery` and `windows-delivery` artifacts.
 
 Build prerequisites follow [Oracle's JDK 21 packaging documentation](https://docs.oracle.com/en/java/javase/21/jpackage/packaging-overview.html).
 The selected [Windows 2022 runner image](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)

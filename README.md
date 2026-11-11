@@ -10,9 +10,10 @@ browser application are implemented. The automated engine, storage, API, client 
 workflow, packaged Linux runtime and plain PHP integration have also passed
 end-to-end checks. A portable Linux archive is available in `build/`.
 
-Windows MSI, Linux DEB installation and Docker deployment still require their
-platform delivery checks. See `DEVELOPMENT_PROGRESS.md` for the remaining work
-and [installation instructions](docs/INSTALLATION.md) for native builds.
+Linux DEB and Windows MSI installation/runtime, browser/PHP workflows and Docker
+deployment passed [final CI](https://github.com/mahdiy2/TraceWise/actions/runs/42825228608).
+See [verification evidence](docs/VERIFICATION.md), `DEVELOPMENT_PROGRESS.md` and
+[installation instructions](docs/INSTALLATION.md).
 
 ## Development
 
@@ -53,7 +54,7 @@ set JAVA_HOME if the helper cannot locate your JDK.
 ./scripts/gradle.sh :composeApp:packageMsi  # Windows host
 ```
 
-Packaging commands are configured but native installers have not been verified.
+Linux DEB and Windows MSI installation and bundled-runtime checks passed CI.
 The desktop stores SQLite metadata and private artifacts in
 `~/.stacktrace-studio`; set `STACKTRACE_DATA_DIR` to override. It requires no
 backend. Create/select a project, add/select a build, upload mapping.txt, then
